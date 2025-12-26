@@ -1,11 +1,11 @@
 package api
 
 import (
-	"database/sql"
 	"net/http"
 	db "simplebankfian/db/sqlc"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
 )
 
 type CreateAccountResponse struct {
@@ -47,7 +47,7 @@ func (server *Server) getAccountById(ctx *gin.Context){
 
 	account, err := server.store.GetAccount(ctx, req.ID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))
 			return
 		}

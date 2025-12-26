@@ -2,49 +2,16 @@ package db
 
 import (
 	"context"
-	"fmt"
-
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"   
 )
 
-// Store provides all functions to execute db queries and transcation
-type Store struct {
-	*Queries
-	db *pgxpool.Pool
+// Store adalah interface yang mencakup semua operasi yang dibutuhkan
+type Store interface {
+	Querier
+	TransferTx(ctx context.Context, arg TransferTxParams) (TransferTxResult, error)
 }
-
-func NewStore(db *pgxpool.Pool) *Store {
-	return &Store{
-		db:      db,
-		Queries: New(db),
-	}
-}
-
-// execTx executes fn inside a transaction
-func (store *Store) execTx(
-	ctx context.Context,
-	fn func(*Queries) error,
-) error {
-
-	tx, err := store.db.Begin(ctx)
-	if err != nil {
-		return err
-	}
-
-	q := New(tx)
-
-	err = fn(q)
-	if err != nil {
-		if rbErr := tx.Rollback(ctx); rbErr != nil {
-			return fmt.Errorf("tx err: %v, rb err: %v", err, rbErr)
-		}
-		return err
-	}
-
-	return tx.Commit(ctx)
-}
-
-// TransferTxParams contains the input parameters
+// TransferTxParams contains the input parameters of the transfer transaction
 type TransferTxParams struct {
 	FromAccountID int64
 	ToAccountID   int64
@@ -60,25 +27,65 @@ type TransferTxResult struct {
 	ToEntry     Entry
 }
 
-func (store *Store) TransferTx(
-	ctx context.Context,
-	arg TransferTxParams,
-) (TransferTxResult, error) {
+// SQLStore mengimplementasi Store
+type SQLStore struct {
+	db *pgxpool.Pool
+	*Queries
+}
 
+// NewStore mengembalikan interface Store
+func NewStore(db *pgxpool.Pool) Store {
+	return &SQLStore{
+		db:      db,
+		Queries: New(db),
+	}
+}
+
+// execTx menjalankan fungsi dalam transaksi
+func (store *SQLStore) execTx(ctx context.Context, fn func(*Queries) error) error {
+	tx, err := store.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+
+	q := store.WithTx(tx)
+
+	defer func() {
+		if err != nil {
+			tx.Rollback(ctx)
+		}
+	}()
+
+	err = fn(q)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// WithTx mengembalikan Queries baru dengan transaksi
+func (store *SQLStore) WithTx(tx pgx.Tx) *Queries {
+	return &Queries{db: tx}
+}
+
+func (store *SQLStore) TransferTx(ctx context.Context, arg TransferTxParams) (TransferTxResult, error) {
 	var result TransferTxResult
 
 	err := store.execTx(ctx, func(q *Queries) error {
 		var err error
 
-		result.Transfer, err = q.CreateTransfer(
-			ctx,
-			CreateTransferParams(arg),
-		)
-
+		// Create transfer record
+		result.Transfer, err = q.CreateTransfer(ctx, CreateTransferParams{
+			FromAccountID: arg.FromAccountID,
+			ToAccountID:   arg.ToAccountID,
+			Amount:        arg.Amount,
+		})
 		if err != nil {
 			return err
 		}
 
+		// Create entries
 		result.FromEntry, err = q.CreateEntry(ctx, CreateEntryParams{
 			AccountID: arg.FromAccountID,
 			Amount:    -arg.Amount,
@@ -95,18 +102,17 @@ func (store *Store) TransferTx(
 			return err
 		}
 
+		// Update account balances
 		if arg.FromAccountID < arg.ToAccountID {
 			result.FromAccount, result.ToAccount, err = addMoney(ctx, q, arg.FromAccountID, -arg.Amount, arg.ToAccountID, arg.Amount)
 		} else {
 			result.ToAccount, result.FromAccount, err = addMoney(ctx, q, arg.ToAccountID, arg.Amount, arg.FromAccountID, -arg.Amount)
 		}
-
-		return nil
+		return err
 	})
 
 	return result, err
 }
-
 
 func addMoney(
 	ctx context.Context,
@@ -116,7 +122,6 @@ func addMoney(
 	accountID2 int64,
 	amount2 int64,
 ) (Account, Account, error) {
-	// Add balance to first account
 	account1, err := q.AddAccountBalance(ctx, AddAccountBalanceParams{
 		ID:     accountID1,
 		Amount: amount1,
@@ -125,7 +130,6 @@ func addMoney(
 		return Account{}, Account{}, err
 	}
 
-	// Add balance to second account
 	account2, err := q.AddAccountBalance(ctx, AddAccountBalanceParams{
 		ID:     accountID2,
 		Amount: amount2,

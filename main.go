@@ -25,8 +25,8 @@ func main() {
 	defer pool.Close()
 
 	// Initialize store & server
-	store := db.NewStore(pool)
-	server := api.NewServer(store)
+	store := db.NewStore(pool) // Mengembalikan Store (interface)
+	server := api.NewServer(store) // Terima Store (interface)
 
 	// Start HTTP server
 	log.Printf("Starting server on %s", config.SERVER_ADDRESS)
