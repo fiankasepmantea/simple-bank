@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
-	"simplebankfian/db/util"
+	"simple-bank/db/util"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"

@@ -2,7 +2,7 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
-	db "simplebankfian/db/sqlc"
+	db "simple-bank/db/sqlc"
 )
 // Server serve HTTP requests for our banking service
 type Server struct {

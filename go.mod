@@ -1,4 +1,4 @@
-module simplebankfian
+module simple-bank
 
 go 1.25.3
 

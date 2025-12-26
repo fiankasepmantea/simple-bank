@@ -2,7 +2,7 @@ package api
 
 import (
 	"net/http"
-	db "simplebankfian/db/sqlc"
+	db "simple-bank/db/sqlc"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
