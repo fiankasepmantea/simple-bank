@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Store provides all db operations
+// Store provides all functions to execute db queries and transcation
 type Store struct {
 	*Queries
 	db *pgxpool.Pool
