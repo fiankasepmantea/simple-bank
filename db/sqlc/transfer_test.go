@@ -9,8 +9,8 @@ import (
 )
 
 func createRandomTransfer(t *testing.T) Transfer {
-	account1 := CreateRandomAccount(t)
-	account2 := CreateRandomAccount(t)
+	account1 := createRandomAccount(t)
+	account2 := createRandomAccount(t)
 
 	arg := CreateTransferParams{
 		FromAccountID: account1.ID,
@@ -56,8 +56,8 @@ func TestGetTransfer(t *testing.T) {
 }
 
 func TestListTransfers(t *testing.T) {
-	account1 := CreateRandomAccount(t)
-	account2 := CreateRandomAccount(t)
+	account1 := createRandomAccount(t)
+	account2 := createRandomAccount(t)
 
 	for i := 0; i < 10; i++ {
 		_, err := testQueries.CreateTransfer(context.Background(), CreateTransferParams{

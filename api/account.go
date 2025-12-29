@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type CreateAccountResponse struct {
@@ -13,7 +14,7 @@ type CreateAccountResponse struct {
 	Currency string `json:"currency" binding:"required,currency"`
 }
 
-func (server *Server) createAccount(ctx *gin.Context){
+func (server *Server) createAccount(ctx *gin.Context) {
 	var req CreateAccountResponse
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
@@ -28,6 +29,21 @@ func (server *Server) createAccount(ctx *gin.Context){
 
 	account, err := server.store.CreateAccount(ctx, arg)
 	if err != nil {
+		if pgErr, ok := err.(*pgconn.PgError); ok {
+			switch pgErr.Code {
+			case "23503": // foreign_key_violation
+			case "23505": // unique_violation
+			case "23502": // not_null_violation
+			case "22001": // string_data_right_truncation
+				ctx.JSON(http.StatusForbidden, errorResponse(err))
+				return
+			default:
+				// Optional: log unknown errors
+				ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+				return
+			}
+		}
+
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
 	}
@@ -38,7 +54,8 @@ func (server *Server) createAccount(ctx *gin.Context){
 type getAccountRequest struct {
 	ID int64 `uri:"id" binding:"required,min=1"`
 }
-func (server *Server) getAccountById(ctx *gin.Context){
+
+func (server *Server) getAccountById(ctx *gin.Context) {
 	var req getAccountRequest
 	if err := ctx.ShouldBindUri(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))

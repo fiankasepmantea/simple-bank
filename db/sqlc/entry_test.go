@@ -9,7 +9,7 @@ import (
 )
 
 func createRandomEntry(t *testing.T) Entry {
-	account := CreateRandomAccount(t)
+	account := createRandomAccount(t)
 
 	arg := CreateEntryParams{
 		AccountID: account.ID,
@@ -52,7 +52,7 @@ func TestGetEntry(t *testing.T) {
 }
 
 func TestListEntries(t *testing.T) {
-	account := CreateRandomAccount(t)
+	account := createRandomAccount(t)
 
 	for i := 0; i < 10; i++ {
 		_, err := testQueries.CreateEntry(context.Background(), CreateEntryParams{

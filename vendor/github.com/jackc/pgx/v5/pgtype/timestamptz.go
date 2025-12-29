@@ -38,6 +38,10 @@ type Timestamptz struct {
 	Valid            bool
 }
 
+func (tstz Timestamptz) IsZero() bool {
+	panic("unimplemented")
+}
+
 // ScanTimestamptz implements the [TimestamptzScanner] interface.
 func (tstz *Timestamptz) ScanTimestamptz(v Timestamptz) error {
 	*tstz = v

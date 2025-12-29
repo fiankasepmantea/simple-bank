@@ -28,8 +28,14 @@ dropdb:
 migrateup:
 	migrate -path $(PWD)/db/migration -database $(DB_SOURCE) -verbose up
 
+migrateup1:
+	migrate -path $(PWD)/db/migration -database $(DB_SOURCE) -verbose up 1
+
 migratedown:
 	migrate -path $(PWD)/db/migration -database $(DB_SOURCE) -verbose down
+
+migratedown1:
+	migrate -path $(PWD)/db/migration -database $(DB_SOURCE) -verbose down 1
 
 # =============================
 # Code Generation
