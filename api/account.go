@@ -9,13 +9,13 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-type CreateAccountResponse struct {
+type CreateAccountRequest struct {
 	Owner    string `json:"owner" binding:"required"`
 	Currency string `json:"currency" binding:"required,currency"`
 }
 
 func (server *Server) createAccount(ctx *gin.Context) {
-	var req CreateAccountResponse
+	var req CreateAccountRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
