@@ -24,13 +24,18 @@ func main() {
 	}
 	defer pool.Close()
 
-	// Initialize store & server
-	store := db.NewStore(pool) // Mengembalikan Store (interface)
-	server := api.NewServer(store) // Terima Store (interface)
+	// Initialize store
+	store := db.NewStore(pool)
+
+	// Initialize server ✅
+	server, err := api.NewServer(config, store)
+	if err != nil {
+		log.Fatal("cannot create server:", err)
+	}
 
 	// Start HTTP server
-	log.Printf("Starting server on %s", config.SERVER_ADDRESS)
-	if err := server.Start(config.SERVER_ADDRESS); err != nil {
+	log.Printf("Starting server on %s", config.SERVERADDRESS)
+	if err := server.Start(config.SERVERADDRESS); err != nil {
 		log.Fatal("cannot start server:", err)
 	}
 }
