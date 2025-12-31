@@ -6,7 +6,6 @@ import (
 	"simple-bank/db/util"
 	"testing"
 	"time"
-	
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
