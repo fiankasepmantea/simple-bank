@@ -5,7 +5,6 @@ import (
 	"net/http"
 	db "simple-bank/db/sqlc"
 	"simple-bank/db/util"
-
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"

@@ -7,7 +7,6 @@ import (
 	"simple-bank/token"
 	"testing"
 	"time"
-
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )

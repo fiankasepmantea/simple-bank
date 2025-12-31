@@ -9,11 +9,9 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
-
 	mockdb "simple-bank/db/mock"
 	db "simple-bank/db/sqlc"
 	"simple-bank/db/util"
-
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/jackc/pgx/v5/pgconn"
