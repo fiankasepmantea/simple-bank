@@ -1,11 +1,15 @@
 package api
 
 import (
-	"database/sql"
+	// "database/sql"
+	// "fmt"
+	"errors"
 	"net/http"
 	db "simple-bank/db/sqlc"
 	"simple-bank/db/util"
+
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -26,9 +30,9 @@ type UserResponse struct {
 }
 
 func newUserResponse(user db.User) UserResponse {
-	return UserResponse {
+	return UserResponse{
 		Username:          user.Username,
-		FullName:          user.FullName,         
+		FullName:          user.FullName,
 		Email:             user.Email,
 		PasswordChangedAt: user.PasswordChangedAt,
 		CreatedAt:         user.CreatedAt,
@@ -68,8 +72,8 @@ func (server *Server) createUser(ctx *gin.Context) {
 
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
-	}	
-	
+	}
+
 	rsp := newUserResponse(user)
 
 	ctx.JSON(http.StatusOK, rsp)
@@ -81,8 +85,8 @@ type LoginUserRequest struct {
 }
 
 type LoginUserResponse struct {
-	AccessToken string `json:"access_token"`
-	User UserResponse `json:"user"`
+	AccessToken string       `json:"access_token"`
+	User        UserResponse `json:"user"`
 }
 
 func (server *Server) loginUser(ctx *gin.Context) {
@@ -94,8 +98,10 @@ func (server *Server) loginUser(ctx *gin.Context) {
 
 	user, err := server.store.GetUser(ctx, req.Username)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			ctx.JSON(http.StatusNotFound, errorResponse(err))
+		if errors.Is(err, pgx.ErrNoRows) {
+			ctx.JSON(http.StatusNotFound, gin.H{
+				"error": "user not found",
+			})
 			return
 		}
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
@@ -118,9 +124,9 @@ func (server *Server) loginUser(ctx *gin.Context) {
 		return
 	}
 
-	rsp := LoginUserResponse {
+	rsp := LoginUserResponse{
 		AccessToken: accessToken,
-		User: newUserResponse(user),
+		User:        newUserResponse(user),
 	}
 	ctx.JSON(http.StatusOK, rsp)
 }
