@@ -10,12 +10,13 @@ permissions:
 
 jobs:
   build:
-    name: Build image
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+
+    - name: Install jq
+      run: sudo apt-get update && sudo apt-get install -y jq
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
@@ -26,11 +27,17 @@ jobs:
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
-    
-    - name: Load secrets and save to app.env
-      run: aws secretsmanager get-secret-value   --secret-id simple_bank   --region ap-southeast-3   --query SecretString   --output text | jq -r 'to_entries|map("\(.key)=\(.value)")|.[]' > app.env
 
-    - name: Build, tag, and push docker image to Amazon ECR
+    - name: Load secrets and save to app.env
+      run: |
+        aws secretsmanager get-secret-value \
+          --secret-id simple_bank \
+          --region ap-southeast-3 \
+          --query SecretString \
+          --output text \
+        | jq -r 'to_entries|map("\(.key)=\(.value)")|.[]' > app.env
+
+    - name: Build and push image
       env:
         REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         REPOSITORY: simple-bank
