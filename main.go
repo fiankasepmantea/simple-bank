@@ -18,7 +18,7 @@ func main() {
 	}
 
 	// Create connection pool
-	pool, err := pgxpool.New(context.Background(), config.DBSOURCE)
+	pool, err := pgxpool.New(context.Background(), config.DBSource)
 	if err != nil {
 		log.Fatal("cannot connect to db:", err)
 	}
@@ -34,8 +34,8 @@ func main() {
 	}
 
 	// Start HTTP server
-	log.Printf("Starting server on %s", config.SERVERADDRESS)
-	if err := server.Start(config.SERVERADDRESS); err != nil {
+	log.Printf("Starting server on %s", config.ServerAddress)
+	if err := server.Start(config.ServerAddress); err != nil {
 		log.Fatal("cannot start server:", err)
 	}
 }
