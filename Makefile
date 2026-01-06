@@ -1,8 +1,9 @@
 # =============================
 # Configuration
 # =============================
-# Gunakan DB_SOURCE dari environment, fallback ke nilai default jika tidak ada
-DB_SOURCE ?= postgresql://postgres:root@localhost:54322/simple_bank?sslmode=disable
+
+#DB_SOURCE ?= postgresql://postgres:root@localhost:54322/simple_bank?sslmode=disable
+DB_SOURCE ?= postgresql://postgresprod:rootprod@simple-bank.czmqqew0g1mp.ap-southeast-3.rds.amazonaws.com:5432/simple_bank
 
 # Tool versions
 MOCKGEN_VERSION ?= v1.6.0
