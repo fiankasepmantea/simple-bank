@@ -9,4 +9,5 @@ echo "Running DB migrations..."
   up
 
 echo "Starting API..."
+
 exec /app/main
