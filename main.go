@@ -38,4 +38,7 @@ func main() {
 	if err := server.Start(config.ServerAddress); err != nil {
 		log.Fatal("cannot start server:", err)
 	}
+
+	log.Printf("Go sees TOKEN_SYMMETRIC_KEY length: %d", len(config.TokenSymmetricKey))
+
 }

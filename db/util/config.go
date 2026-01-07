@@ -21,17 +21,20 @@ func LoadConfig(path string) (config Config, err error) {
 
 	viper.AutomaticEnv()
 
-	// Try to read config file, but don't fail if it's missing
+	// 🔥 WAJIB: explicit env binding
+	viper.BindEnv("DB_SOURCE")
+	viper.BindEnv("SERVER_ADDRESS")
+	viper.BindEnv("TOKEN_SYMMETRIC_KEY")
+	viper.BindEnv("ACCESS_TOKEN_DURATION")
+
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			// Config file not found — that's OK, we'll use environment variables
 			fmt.Println("⚠️  Config file 'app.env' not found. Using environment variables only.")
 		} else {
 			return config, fmt.Errorf("error reading config file: %w", err)
 		}
 	}
 
-	// Always unmarshal, even if config file was missing
 	err = viper.Unmarshal(&config)
 	return config, err
 }
