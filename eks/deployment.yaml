@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: simple-bank-api-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: simple-bank-api
+  template:
+    metadata:
+      labels:
+        app: simple-bank-api
+    spec:
+      containers:
+      - name: simple-bank-api
+        image: 459181228984.dkr.ecr.ap-southeast-3.amazonaws.com/simple-bank:c0ce4d9c4e132f4d647f71ecc709cb14ade6d11f
+        ports:
+        - containerPort: 8080
+        env:
+        - name: DB_SOURCE
+          value: "postgresql://postgresprod:rootprod@simple-bank.czmqqew0g1mp.ap-southeast-3.rds.amazonaws.com:5432/simple_bank?sslmode=disable"
+        - name: SERVER_ADDRESS
+          value: "0.0.0.0:8080"
+        - name: TOKEN_SYMMETRIC_KEY
+          value: "12345678901234567890123456789012"
+        - name: ACCESS_TOKEN_DURATION
+          value: "15m"
