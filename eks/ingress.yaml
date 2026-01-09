@@ -1,0 +1,59 @@
+# apiVersion: networking.k8s.io/v1
+# kind: IngressClass
+# metadata:
+#   name: nginx
+# spec:
+#   controller: k8s.io/ingress-nginx
+# ---
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: simple-bank-ingress
+#   annotations:
+#     cert-manager.io/cluster-issuer: selfsigned  # letsencrypt
+# spec:
+#   ingressClassName: nginx
+#   rules:
+#     - host: a6b183582376d4c5cb5764d02c5570a3-2f52429ce2b7978d.elb.ap-southeast-3.amazonaws.com
+#       http:
+#         paths:
+#           - path: "/"
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: simple-bank-api-service
+#                 port:
+#                   number: 80
+#   tls:
+#     - hosts:
+#         - a6b183582376d4c5cb5764d02c5570a3-2f52429ce2b7978d.elb.ap-southeast-3.amazonaws.com
+#       secretName: simple-bank-api-cert
+
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: nginx
+spec:
+  controller: k8s.io/ingress-nginx
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: simple-bank-ingress
+  annotations:
+    # ✅ Explicitly disable HTTPS redirect
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    # Optional: if you want to allow HTTP only
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: simple-bank-api-service
+                port:
+                  number: 80
