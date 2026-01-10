@@ -14,12 +14,14 @@ spec:
     spec:
       containers:
       - name: simple-bank-api
-        image: 459181228984.dkr.ecr.ap-southeast-3.amazonaws.com/simple-bank:c0ce4d9c4e132f4d647f71ecc709cb14ade6d11f
+        #image: 459181228984.dkr.ecr.ap-southeast-3.amazonaws.com/simple-bank:c0ce4d9c4e132f4d647f71ecc709cb14ade6d11f
+        image: 459181228984.dkr.ecr.ap-southeast-3.amazonaws.com/simple-bank:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
         env:
         - name: DB_SOURCE
-          value: "postgresql://postgresprod:rootprod@simple-bank.czmqqew0g1mp.ap-southeast-3.rds.amazonaws.com:5432/simple_bank?sslmode=disable"
+          value: "postgresql://postgresprod:rootprod@simple-bank.czmqqew0g1mp.ap-southeast-3.rds.amazonaws.com:5432/simple_bank"
         - name: SERVER_ADDRESS
           value: "0.0.0.0:8080"
         - name: TOKEN_SYMMETRIC_KEY
