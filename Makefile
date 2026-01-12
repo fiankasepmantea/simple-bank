@@ -38,6 +38,12 @@ migratedown:
 migratedown1:
 	migrate -path $(PWD)/db/migration -database $(DB_SOURCE) -verbose down 1
 
+db_docs:
+	dbdocs build doc/db.dbml
+
+db_schema:
+	dbml2sql --postgres -o doc/schema.sql doc/db.dbml
+
 # =============================
 # Code Generation
 # =============================
@@ -63,4 +69,4 @@ server:
 # =============================
 # Phony Targets
 # =============================
-.PHONY: postgres createdb dropdb migrateup migratedown sqlc mock test server
+.PHONY: postgres createdb dropdb migrateup migratedown db_docs sqlc db_schema mock test server

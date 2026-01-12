@@ -1,0 +1,53 @@
+Project simple_bank {
+  database_type: "PostgreSQL"
+}
+
+Table users {
+  username varchar [pk]
+  hashed_password varchar
+  full_name varchar
+  email varchar [unique]
+  password_changed_at timestamptz
+  created_at timestamptz
+}
+
+Table accounts {
+  id bigserial [pk]
+  owner varchar
+  balance bigint
+  currency varchar
+  created_at timestamptz
+}
+
+Table entries {
+  id bigserial [pk]
+  account_id bigint
+  amount bigint
+  created_at timestamptz
+}
+
+Table transfers {
+  id bigserial [pk]
+  from_account_id bigint
+  to_account_id bigint
+  amount bigint
+  created_at timestamptz
+}
+
+Table sessions {
+  id uuid [pk]
+  username varchar
+  refresh_token varchar
+  user_agent varchar
+  client_ip varchar
+  is_blocked boolean
+  expires_at timestamptz
+  created_at timestamptz
+}
+
+/* Relations */
+Ref: accounts.owner > users.username
+Ref: entries.account_id > accounts.id
+Ref: transfers.from_account_id > accounts.id
+Ref: transfers.to_account_id > accounts.id
+Ref: sessions.username > users.username

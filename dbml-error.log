@@ -1,0 +1,26 @@
+2026-01-12T08:27:14.735Z
+SyntaxError: You have a syntax error at "db.dbml". EACCES: permission denied, open '/home/fiankasepman/go/src/simple-bank/doc/schema.sql'
+    at /home/fiankasepman/.nvm/versions/node/v18.20.8/lib/node_modules/@dbml/cli/lib/cli/utils.js:55:13
+    at Array.forEach (<anonymous>)
+    at generate (/home/fiankasepman/.nvm/versions/node/v18.20.8/lib/node_modules/@dbml/cli/lib/cli/utils.js:48:14)
+    at exportHandler (/home/fiankasepman/.nvm/versions/node/v18.20.8/lib/node_modules/@dbml/cli/lib/cli/export.js:41:27)
+    at Object.dbml2sql (/home/fiankasepman/.nvm/versions/node/v18.20.8/lib/node_modules/@dbml/cli/lib/cli/index.js:27:23)
+    at Object.<anonymous> (/home/fiankasepman/.nvm/versions/node/v18.20.8/lib/node_modules/@dbml/cli/bin/dbml2sql.js:4:19)
+    at Module._compile (node:internal/modules/cjs/loader:1364:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1422:10)
+    at Module.load (node:internal/modules/cjs/loader:1203:32)
+    at Module._load (node:internal/modules/cjs/loader:1019:12)
+
+ROOT_ERROR:
+Error: EACCES: permission denied, open '/home/fiankasepman/go/src/simple-bank/doc/schema.sql'
+    at Object.openSync (node:fs:596:3)
+    at Object.writeFileSync (node:fs:2322:35)
+    at OutputFilePlugin.start (/home/fiankasepman/.nvm/versions/node/v18.20.8/lib/node_modules/@dbml/cli/lib/cli/outputPlugins/outputFilePlugin.js:20:17)
+    at OutputFilePlugin.write (/home/fiankasepman/.nvm/versions/node/v18.20.8/lib/node_modules/@dbml/cli/lib/cli/outputPlugins/outputFilePlugin.js:30:29)
+    at /home/fiankasepman/.nvm/versions/node/v18.20.8/lib/node_modules/@dbml/cli/lib/cli/utils.js:53:20
+    at Array.forEach (<anonymous>)
+    at generate (/home/fiankasepman/.nvm/versions/node/v18.20.8/lib/node_modules/@dbml/cli/lib/cli/utils.js:48:14)
+    at exportHandler (/home/fiankasepman/.nvm/versions/node/v18.20.8/lib/node_modules/@dbml/cli/lib/cli/export.js:41:27)
+    at Object.dbml2sql (/home/fiankasepman/.nvm/versions/node/v18.20.8/lib/node_modules/@dbml/cli/lib/cli/index.js:27:23)
+    at Object.<anonymous> (/home/fiankasepman/.nvm/versions/node/v18.20.8/lib/node_modules/@dbml/cli/bin/dbml2sql.js:4:19)
+
