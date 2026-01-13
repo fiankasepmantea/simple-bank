@@ -20,6 +20,7 @@ services:
     container_name: simple-bank-api
     ports:
       - "8080:8080"
+      - "9090:9090"
     env_file:
       - app.env
     environment:

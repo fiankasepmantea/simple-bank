@@ -71,7 +71,10 @@ proto:
     --go-grpc_out=pb --go-grpc_opt=paths=source_relative \
     proto/*.proto
 
+evans:
+	evans --host localhost --port 9090 -r repl
+
 # =============================
 # Phony Targets
 # =============================
-.PHONY: postgres createdb dropdb migrateup migratedown db_docs sqlc db_schema mock test server proto
+.PHONY: postgres createdb dropdb migrateup migratedown db_docs sqlc db_schema mock test server proto evans
