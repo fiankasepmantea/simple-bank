@@ -5,6 +5,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strings"
+
 	// "runtime"
 
 	"simple-bank/api"
@@ -13,12 +15,11 @@ import (
 	"simple-bank/gapi"
 	"simple-bank/pb"
 
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
-	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/protobuf/encoding/protojson"
-	
 )
 
 func main() {
@@ -49,7 +50,7 @@ func runGrpcServer(config util.Config, store db.Store) {
 	grpcServer := grpc.NewServer()
 	pb.RegisterSimpleBankServer(grpcServer, server)
 	reflection.Register(grpcServer)
-	
+
 	listener, err := net.Listen("tcp", config.GRPCServerAddress)
 	if err != nil {
 		log.Fatal("cannot create listener:", err)
@@ -69,10 +70,19 @@ func runGatewayServer(config util.Config, store db.Store) {
 	}
 
 	grpcMux := runtime.NewServeMux(
+		runtime.WithIncomingHeaderMatcher(func(key string) (string, bool) {
+			switch strings.ToLower(key) {
+			case "user-agent":
+				return "grpcgateway-user-agent", true
+			case "x-forwarded-for":
+				return "x-forwarded-for", true
+			default:
+				return runtime.DefaultHeaderMatcher(key)
+			}
+		}),
 		runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{
 			MarshalOptions: protojson.MarshalOptions{
-				UseProtoNames:   true,
-				EmitUnpopulated: true,
+				UseProtoNames: true,
 			},
 			UnmarshalOptions: protojson.UnmarshalOptions{
 				DiscardUnknown: true,
@@ -115,4 +125,4 @@ func runGinServer(config util.Config, store db.Store) {
 	}
 
 	log.Printf("Go sees TOKEN_SYMMETRIC_KEY length: %d", len(config.TokenSymmetricKey))
-}	
+}
