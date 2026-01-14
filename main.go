@@ -18,6 +18,7 @@ import (
 	"simple-bank/gapi"
 	"simple-bank/pb"
 	"strings"
+	// _"simple-bank/doc/statik"
 )
 
 //go:embed doc/swagger/*

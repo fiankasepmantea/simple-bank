@@ -72,4 +72,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
+// require github.com/rakyll/statik v0.1.8
+
 require github.com/pkg/errors v0.8.0 // indirect
