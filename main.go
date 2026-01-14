@@ -19,6 +19,9 @@ import (
 	"simple-bank/pb"
 	"strings"
 	// _"simple-bank/doc/statik"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+    _ "github.com/golang-migrate/migrate/v4/database/postgres"
 )
 
 //go:embed doc/swagger/*
@@ -37,10 +40,23 @@ func main() {
 	}
 	defer pool.Close()
 
+	runDBMigration(config.MigrationURL, config.DBSource)
+
 	// Initialize store
 	store := db.NewStore(pool)
 	go runGatewayServer(config, store)
 	runGrpcServer(config, store)
+}
+
+func runDBMigration(migrationURL string, dbSource string) {
+	migration, err := migrate.New(migrationURL, dbSource)
+	if err != nil {
+		log.Fatal("cannot create new migrate instance:", err)
+	}
+	if err = migration.Up(); err != nil && err != migrate.ErrNoChange {
+		log.Fatal("failed to run migrate up:", err)
+	}
+	log.Println("db migrated successfully")	
 }
 
 func runGrpcServer(config util.Config, store db.Store) {
