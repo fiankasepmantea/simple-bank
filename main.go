@@ -2,18 +2,16 @@ package main
 
 import (
 	"context"
+	"embed"
 	"log"
 	"net"
 	"net/http"
-	"strings"
-
-	// "runtime"
-
 	"simple-bank/api"
 	db "simple-bank/db/sqlc"
 	"simple-bank/db/util"
 	"simple-bank/gapi"
 	"simple-bank/pb"
+	"strings"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -22,6 +20,9 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
+
+//go:embed doc/swagger/*
+var swaggerFS embed.FS
 func main() {
 	config, err := util.LoadConfig(".")
 	if err != nil {
@@ -64,11 +65,13 @@ func runGrpcServer(config util.Config, store db.Store) {
 }
 
 func runGatewayServer(config util.Config, store db.Store) {
+	// Initialize gRPC server
 	server, err := gapi.NewServer(config, store)
 	if err != nil {
 		log.Fatal("cannot create server:", err)
 	}
 
+	// gRPC-Gateway mux
 	grpcMux := runtime.NewServeMux(
 		runtime.WithIncomingHeaderMatcher(func(key string) (string, bool) {
 			switch strings.ToLower(key) {
@@ -90,27 +93,33 @@ func runGatewayServer(config util.Config, store db.Store) {
 		}),
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	err = pb.RegisterSimpleBankHandlerServer(ctx, grpcMux, server)
-	if err != nil {
-		log.Fatal("cannot register handler:", err)
+	ctx := context.Background()
+	if err := pb.RegisterSimpleBankHandlerServer(ctx, grpcMux, server); err != nil {
+		log.Fatal("cannot register gRPC-Gateway handler:", err)
 	}
 
+	// HTTP mux
 	mux := http.NewServeMux()
 	mux.Handle("/", grpcMux)
 
+	// Serve Swagger files
+	mux.Handle("/swagger/", http.StripPrefix("/swagger/", http.FileServer(http.FS(swaggerFS))))
+	mux.HandleFunc("/swagger", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/swagger/index.html", http.StatusMovedPermanently)
+	})
+
+	// Start listener
 	listener, err := net.Listen("tcp", config.HTTPServerAddress)
 	if err != nil {
 		log.Fatal("cannot create listener:", err)
 	}
 
-	log.Printf("start HTTP gateway at %s", listener.Addr().String())
+	log.Printf("HTTP gateway started at %s", listener.Addr().String())
 	if err := http.Serve(listener, mux); err != nil {
 		log.Fatal("cannot start HTTP gateway:", err)
 	}
 }
+
 func runGinServer(config util.Config, store db.Store) {
 	// Initialize server ✅
 	server, err := api.NewServer(config, store)
