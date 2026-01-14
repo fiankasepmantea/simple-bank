@@ -3,6 +3,12 @@ package main
 import (
 	"context"
 	"embed"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
+	"google.golang.org/protobuf/encoding/protojson"
+	"io/fs"
 	"log"
 	"net"
 	"net/http"
@@ -12,17 +18,11 @@ import (
 	"simple-bank/gapi"
 	"simple-bank/pb"
 	"strings"
-
-	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
-	"google.golang.org/protobuf/encoding/protojson"
 )
-
 
 //go:embed doc/swagger/*
 var swaggerFS embed.FS
+
 func main() {
 	config, err := util.LoadConfig(".")
 	if err != nil {
@@ -102,8 +102,17 @@ func runGatewayServer(config util.Config, store db.Store) {
 	mux := http.NewServeMux()
 	mux.Handle("/", grpcMux)
 
-	// Serve Swagger files
-	mux.Handle("/swagger/", http.StripPrefix("/swagger/", http.FileServer(http.FS(swaggerFS))))
+	swaggerSubFS, err := fs.Sub(swaggerFS, "doc/swagger")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	mux.Handle("/swagger/",
+		http.StripPrefix("/swagger/",
+			http.FileServer(http.FS(swaggerSubFS)),
+		),
+	)
+
 	mux.HandleFunc("/swagger", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/swagger/index.html", http.StatusMovedPermanently)
 	})
