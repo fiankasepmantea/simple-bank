@@ -8,6 +8,7 @@ import (
 )
 
 type Config struct {
+	Environment          string        `mapstructure:"ENVIRONMENT"`
 	DBSource             string        `mapstructure:"DB_SOURCE"`
 	MigrationURL         string        `mapstructure:"MIGRATION_URL"`
 	HTTPServerAddress    string        `mapstructure:"HTTP_SERVER_ADDRESS"`
@@ -25,6 +26,7 @@ func LoadConfig(path string) (config Config, err error) {
 	viper.AutomaticEnv()
 
 	// 🔥 WAJIB: explicit env binding
+	viper.BindEnv("ENVIRONMENT")
 	viper.BindEnv("DB_SOURCE")
 	viper.BindEnv("MIGRATION_URL")
 	viper.BindEnv("HTTP_SERVER_ADDRESS")
