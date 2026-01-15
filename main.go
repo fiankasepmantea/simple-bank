@@ -27,25 +27,37 @@ import (
 //go:embed doc/swagger/*
 var swaggerFS embed.FS
 
+// func main() {
+// 	config, err := util.LoadConfig(".")
+// 	if err != nil {
+// 		log.Fatal("cannot load config:", err)
+// 	}
+
+// 	// Create connection pool
+// 	pool, err := pgxpool.New(context.Background(), config.DBSource)
+// 	if err != nil {
+// 		log.Fatal("cannot connect to db:", err)
+// 	}
+// 	defer pool.Close()
+
+// 	runDBMigration(config.MigrationURL, config.DBSource)
+
+// 	// Initialize store
+// 	store := db.NewStore(pool)
+// 	go runGatewayServer(config, store)
+// 	runGrpcServer(config, store)
+// }
 func main() {
-	config, err := util.LoadConfig(".")
-	if err != nil {
-		log.Fatal("cannot load config:", err)
-	}
+    config, _ := util.LoadConfig(".")
 
-	// Create connection pool
-	pool, err := pgxpool.New(context.Background(), config.DBSource)
-	if err != nil {
-		log.Fatal("cannot connect to db:", err)
-	}
-	defer pool.Close()
+    pool, _ := pgxpool.New(context.Background(), config.DBSource)
+    defer pool.Close()
 
-	runDBMigration(config.MigrationURL, config.DBSource)
+    runDBMigration(config.MigrationURL, config.DBSource)
 
-	// Initialize store
-	store := db.NewStore(pool)
-	go runGatewayServer(config, store)
-	runGrpcServer(config, store)
+    store := db.NewStore(pool)
+    go runGatewayServer(config, store)
+    runGrpcServer(config, store)
 }
 
 func runDBMigration(migrationURL string, dbSource string) {

@@ -1,15 +1,9 @@
 #!/bin/sh
 set -e
 
-# echo "Running DB migrations..."
+echo "⏳ Waiting for Postgres..."
+/app/wait-for.sh postgres:5432 -- echo "✅ Postgres is up"
 
-# /app/migrate \
-#   -path /app/migration \
-#   -database "$DB_SOURCE" \
-#   up
-
-echo "TOKEN_SYMMETRIC_KEY length: ${#TOKEN_SYMMETRIC_KEY}"
-
-echo "Starting API..."
-
-exec /app/main
+# Run main binary (migration + API)
+echo "🌟 Starting API server..."
+/app/main

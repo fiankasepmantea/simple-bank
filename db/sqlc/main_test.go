@@ -13,7 +13,10 @@ import (
 var testQueries *Queries
 var testDB *pgxpool.Pool
 var testStore Store
+
 func TestMain(m *testing.M) {
+	os.Setenv("APP_ENV", "local")
+
 	config, err := util.LoadConfig("../..")
 	if err != nil {
 		log.Fatal("cannot load config:", err)
@@ -28,6 +31,7 @@ func TestMain(m *testing.M) {
 	testStore = NewStore(testDB)
 
 	code := m.Run()
+
 	testDB.Close()
 	os.Exit(code)
 }
