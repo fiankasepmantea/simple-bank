@@ -87,7 +87,10 @@ proto:
 evans:
 	evans --host localhost --port 9090 -r repl
 
+redis:
+	docker run --name redis-simple-bank -p 6380:6379 -d redis:8-alpine
+
 # =============================
 # Phony Targets
 # =============================
-.PHONY: postgres createdb dropdb migrateup migratedown db_docs sqlc db_schema mock test server install-tools proto evans
+.PHONY: postgres createdb dropdb migrateup migratedown db_docs sqlc db_schema mock test server install-tools proto evans redis

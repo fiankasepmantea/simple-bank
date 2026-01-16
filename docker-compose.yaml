@@ -15,6 +15,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+  redis:
+    image: redis:8-alpine
+    container_name: simple-bank-redis
+    ports: []
 
   api:
     build:
@@ -29,9 +33,12 @@ services:
     environment:
       DB_SOURCE: postgresql://postgres:root@postgres:5432/simple_bank?sslmode=disable
       MIGRATION_URL: file:///app/db/migration
+      REDIS_ADDRESS: redis:6379
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
 
 volumes:
   postgres_data:
