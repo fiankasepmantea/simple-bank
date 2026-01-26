@@ -29,6 +29,9 @@ import (
 
 	"simple-bank/worker"       
 	"github.com/hibiken/asynq"
+	"simple-bank/mq"
+	amqp "github.com/rabbitmq/amqp091-go"
+
 )
 
 //go:embed doc/swagger/*
@@ -57,9 +60,15 @@ func main() {
 
 	taskDistributor := worker.NewRedisTaskDistributor(redisOpt)
 	
+	conn, ch := mq.NewRabbitMQ(config.RabbitMQURL)
+	defer conn.Close()
+	defer ch.Close()
+
+	mq.StartUserCreatedConsumer(ch, store)
+
 	go runTaskProcessor(redisOpt, store)
-    go runGatewayServer(config, store, taskDistributor)
-    runGrpcServer(config, store, taskDistributor)
+    go runGatewayServer(config, store, taskDistributor, ch)
+    runGrpcServer(config, store, taskDistributor, ch)
 }
 
 func runDBMigration(migrationURL string, dbSource string) {
@@ -81,8 +90,8 @@ func runTaskProcessor(redisOpt asynq.RedisClientOpt, store db.Store) {
 		log.Fatal().Err(err).Msg("failed to start task processor:")
 	}
 }
-func runGrpcServer(config util.Config, store db.Store, taskDistributor worker.TaskDistributor) {
-	server, err := gapi.NewServer(config, store, taskDistributor)
+func runGrpcServer(config util.Config, store db.Store, taskDistributor worker.TaskDistributor, rabbitCh *amqp.Channel,) {
+	server, err := gapi.NewServer(config, store, taskDistributor, rabbitCh)
 	if err != nil {
 		log.Fatal().Msg("cannot create server:")
 	}
@@ -105,9 +114,9 @@ func runGrpcServer(config util.Config, store db.Store, taskDistributor worker.Ta
 	}
 }
 
-func runGatewayServer(config util.Config, store db.Store, taskDistributor worker.TaskDistributor) {
+func runGatewayServer(config util.Config, store db.Store, taskDistributor worker.TaskDistributor, rabbitCh *amqp.Channel,) {
 	// Initialize gRPC server
-	server, err := gapi.NewServer(config, store, taskDistributor)
+	server, err := gapi.NewServer(config, store, taskDistributor, rabbitCh)
 	if err != nil {
 		log.Fatal().Msg("cannot create server:")
 	}

@@ -18,4 +18,12 @@ SET
     email           = COALESCE(sqlc.narg(email), email)
 WHERE
     username = sqlc.arg(username)
-RETURNING username, hashed_password, full_name, email, password_changed_at, created_at;
+RETURNING *;
+
+-- name: UpdateUserID :one
+UPDATE users
+SET id = $2
+WHERE username = $1
+  AND id IS NULL
+RETURNING username, hashed_password, full_name, email, password_changed_at, created_at, id;
+

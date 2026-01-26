@@ -93,4 +93,4 @@ redis:
 # =============================
 # Phony Targets
 # =============================
-.PHONY: postgres createdb dropdb migrateup migratedown db_docs sqlc db_schema mock test server install-tools proto evans redis
+.PHONY: postgres createdb dropdb migrateup migratedown migrateup1 migratedown1 	db_docs sqlc db_schema mock test server install-tools proto evans redis

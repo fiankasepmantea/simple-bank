@@ -16,7 +16,7 @@ INSERT INTO users (
   username, hashed_password, full_name, email
 ) VALUES (
   $1, $2, $3, $4
-) RETURNING username, hashed_password, full_name, email, password_changed_at, created_at
+) RETURNING username, hashed_password, full_name, email, password_changed_at, created_at, id
 `
 
 type CreateUserParams struct {
@@ -41,12 +41,13 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Email,
 		&i.PasswordChangedAt,
 		&i.CreatedAt,
+		&i.ID,
 	)
 	return i, err
 }
 
 const getUser = `-- name: GetUser :one
-SELECT username, hashed_password, full_name, email, password_changed_at, created_at FROM users
+SELECT username, hashed_password, full_name, email, password_changed_at, created_at, id FROM users
 WHERE username = $1 LIMIT 1
 `
 
@@ -60,6 +61,7 @@ func (q *Queries) GetUser(ctx context.Context, username string) (User, error) {
 		&i.Email,
 		&i.PasswordChangedAt,
 		&i.CreatedAt,
+		&i.ID,
 	)
 	return i, err
 }
@@ -73,7 +75,7 @@ SET
     email           = COALESCE($4, email)
 WHERE
     username = $5
-RETURNING username, hashed_password, full_name, email, password_changed_at, created_at
+RETURNING username, hashed_password, full_name, email, password_changed_at, created_at, id
 `
 
 type UpdateUserParams struct {
@@ -100,6 +102,35 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.Email,
 		&i.PasswordChangedAt,
 		&i.CreatedAt,
+		&i.ID,
+	)
+	return i, err
+}
+
+const updateUserID = `-- name: UpdateUserID :one
+UPDATE users
+SET id = $2
+WHERE username = $1
+  AND id IS NULL
+RETURNING username, hashed_password, full_name, email, password_changed_at, created_at, id
+`
+
+type UpdateUserIDParams struct {
+	Username string      `json:"username"`
+	ID       pgtype.Int8 `json:"id"`
+}
+
+func (q *Queries) UpdateUserID(ctx context.Context, arg UpdateUserIDParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUserID, arg.Username, arg.ID)
+	var i User
+	err := row.Scan(
+		&i.Username,
+		&i.HashedPassword,
+		&i.FullName,
+		&i.Email,
+		&i.PasswordChangedAt,
+		&i.CreatedAt,
+		&i.ID,
 	)
 	return i, err
 }

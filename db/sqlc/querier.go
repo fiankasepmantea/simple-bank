@@ -29,6 +29,7 @@ type Querier interface {
 	ListTransfers(ctx context.Context, arg ListTransfersParams) ([]Transfer, error)
 	UpdateAccount(ctx context.Context, arg UpdateAccountParams) (Account, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
+	UpdateUserID(ctx context.Context, arg UpdateUserIDParams) (User, error)
 }
 
 var _ Querier = (*Queries)(nil)
