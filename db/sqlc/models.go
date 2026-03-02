@@ -24,6 +24,16 @@ type Entry struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type OutboxEvent struct {
+	ID            int64              `json:"id"`
+	AggregateType string             `json:"aggregate_type"`
+	AggregateID   int64              `json:"aggregate_id"`
+	EventType     string             `json:"event_type"`
+	Payload       []byte             `json:"payload"`
+	Processed     pgtype.Bool        `json:"processed"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
 type Session struct {
 	ID           pgtype.UUID        `json:"id"`
 	Username     string             `json:"username"`

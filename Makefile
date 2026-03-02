@@ -12,10 +12,10 @@ MOCKGEN_VERSION ?= v1.6.0
 # Docker / Database
 # =============================
 postgres:
-	docker run --name postgres14 --network bank-network -p 54322:5432 \
-		-e POSTGRES_USER=postgres \
-		-e POSTGRES_PASSWORD=root \
-		-d postgres:alpine3.22
+	docker run --name postgres14 -p 54322:5432 \
+	-e POSTGRES_USER=postgres \
+	-e POSTGRES_PASSWORD=root \
+	-d postgres:alpine3.22
 
 createdb:
 	docker exec postgres14 psql -U postgres -c "CREATE DATABASE simple_bank;"

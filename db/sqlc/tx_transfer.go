@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5"
+	"encoding/json"
 )
 
 // TransferTxParams contains the input parameters of the transfer transaction
@@ -32,7 +33,7 @@ func (store *SQLStore) TransferTx(ctx context.Context, arg TransferTxParams) (Tr
 	err := store.execTx(ctx, func(q *Queries) error {
 		var err error
 
-		// Create transfer record
+		// 1️⃣ Create transfer record
 		result.Transfer, err = q.CreateTransfer(ctx, CreateTransferParams{
 			FromAccountID: arg.FromAccountID,
 			ToAccountID:   arg.ToAccountID,
@@ -42,7 +43,7 @@ func (store *SQLStore) TransferTx(ctx context.Context, arg TransferTxParams) (Tr
 			return err
 		}
 
-		// Create entries
+		// 2️⃣ Create debit entry
 		result.FromEntry, err = q.CreateEntry(ctx, CreateEntryParams{
 			AccountID: arg.FromAccountID,
 			Amount:    -arg.Amount,
@@ -51,6 +52,7 @@ func (store *SQLStore) TransferTx(ctx context.Context, arg TransferTxParams) (Tr
 			return err
 		}
 
+		// 3️⃣ Create credit entry
 		result.ToEntry, err = q.CreateEntry(ctx, CreateEntryParams{
 			AccountID: arg.ToAccountID,
 			Amount:    arg.Amount,
@@ -59,18 +61,55 @@ func (store *SQLStore) TransferTx(ctx context.Context, arg TransferTxParams) (Tr
 			return err
 		}
 
-		// Update account balances
+		// 4️⃣ Update account balances (deadlock-safe ordering)
 		if arg.FromAccountID < arg.ToAccountID {
-			result.FromAccount, result.ToAccount, err = addMoney(ctx, q, arg.FromAccountID, -arg.Amount, arg.ToAccountID, arg.Amount)
+			result.FromAccount, result.ToAccount, err = addMoney(
+				ctx,
+				q,
+				arg.FromAccountID, -arg.Amount,
+				arg.ToAccountID, arg.Amount,
+			)
 		} else {
-			result.ToAccount, result.FromAccount, err = addMoney(ctx, q, arg.ToAccountID, arg.Amount, arg.FromAccountID, -arg.Amount)
+			result.ToAccount, result.FromAccount, err = addMoney(
+				ctx,
+				q,
+				arg.ToAccountID, arg.Amount,
+				arg.FromAccountID, -arg.Amount,
+			)
 		}
-		return err
+		if err != nil {
+			return err
+		}
+
+		// 5️⃣ INSERT OUTBOX EVENT (CRITICAL PART 🔥)
+
+		eventPayload := map[string]interface{}{
+			"transfer_id":  result.Transfer.ID,
+			"from_account": arg.FromAccountID,
+			"to_account":   arg.ToAccountID,
+			"amount":       arg.Amount,
+		}
+
+		payloadBytes, err := json.Marshal(eventPayload)
+		if err != nil {
+			return err
+		}
+
+		_, err = q.CreateOutboxEvent(ctx, CreateOutboxEventParams{
+			AggregateType: "transfer",
+			AggregateID:   result.Transfer.ID,
+			EventType:     "transfer_created",
+			Payload:       payloadBytes,
+		})
+		if err != nil {
+			return err
+		}
+
+		return nil
 	})
 
 	return result, err
 }
-
 func addMoney(
 	ctx context.Context,
 	q *Queries,

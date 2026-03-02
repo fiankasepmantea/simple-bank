@@ -81,6 +81,21 @@ func (mr *MockStoreMockRecorder) CreateEntry(arg0, arg1 interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEntry", reflect.TypeOf((*MockStore)(nil).CreateEntry), arg0, arg1)
 }
 
+// CreateOutboxEvent mocks base method.
+func (m *MockStore) CreateOutboxEvent(arg0 context.Context, arg1 db.CreateOutboxEventParams) (db.OutboxEvent, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateOutboxEvent", arg0, arg1)
+	ret0, _ := ret[0].(db.OutboxEvent)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateOutboxEvent indicates an expected call of CreateOutboxEvent.
+func (mr *MockStoreMockRecorder) CreateOutboxEvent(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateOutboxEvent", reflect.TypeOf((*MockStore)(nil).CreateOutboxEvent), arg0, arg1)
+}
+
 // CreateSession mocks base method.
 func (m *MockStore) CreateSession(arg0 context.Context, arg1 db.CreateSessionParams) (db.Session, error) {
 	m.ctrl.T.Helper()
@@ -288,6 +303,35 @@ func (m *MockStore) ListTransfers(arg0 context.Context, arg1 db.ListTransfersPar
 func (mr *MockStoreMockRecorder) ListTransfers(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTransfers", reflect.TypeOf((*MockStore)(nil).ListTransfers), arg0, arg1)
+}
+
+// ListUnprocessedOutboxEvents mocks base method.
+func (m *MockStore) ListUnprocessedOutboxEvents(arg0 context.Context, arg1 int32) ([]db.OutboxEvent, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListUnprocessedOutboxEvents", arg0, arg1)
+	ret0, _ := ret[0].([]db.OutboxEvent)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListUnprocessedOutboxEvents indicates an expected call of ListUnprocessedOutboxEvents.
+func (mr *MockStoreMockRecorder) ListUnprocessedOutboxEvents(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListUnprocessedOutboxEvents", reflect.TypeOf((*MockStore)(nil).ListUnprocessedOutboxEvents), arg0, arg1)
+}
+
+// MarkOutboxEventProcessed mocks base method.
+func (m *MockStore) MarkOutboxEventProcessed(arg0 context.Context, arg1 int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkOutboxEventProcessed", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MarkOutboxEventProcessed indicates an expected call of MarkOutboxEventProcessed.
+func (mr *MockStoreMockRecorder) MarkOutboxEventProcessed(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkOutboxEventProcessed", reflect.TypeOf((*MockStore)(nil).MarkOutboxEventProcessed), arg0, arg1)
 }
 
 // TransferTx mocks base method.
