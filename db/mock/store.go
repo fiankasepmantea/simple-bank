@@ -51,6 +51,21 @@ func (mr *MockStoreMockRecorder) AddAccountBalance(arg0, arg1 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddAccountBalance", reflect.TypeOf((*MockStore)(nil).AddAccountBalance), arg0, arg1)
 }
 
+// CountUnresolvedDeadLetters mocks base method.
+func (m *MockStore) CountUnresolvedDeadLetters(arg0 context.Context) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CountUnresolvedDeadLetters", arg0)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CountUnresolvedDeadLetters indicates an expected call of CountUnresolvedDeadLetters.
+func (mr *MockStoreMockRecorder) CountUnresolvedDeadLetters(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CountUnresolvedDeadLetters", reflect.TypeOf((*MockStore)(nil).CountUnresolvedDeadLetters), arg0)
+}
+
 // CreateAccount mocks base method.
 func (m *MockStore) CreateAccount(arg0 context.Context, arg1 db.CreateAccountParams) (db.Account, error) {
 	m.ctrl.T.Helper()
@@ -228,6 +243,21 @@ func (mr *MockStoreMockRecorder) GetAccountForUpdate(arg0, arg1 interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccountForUpdate", reflect.TypeOf((*MockStore)(nil).GetAccountForUpdate), arg0, arg1)
 }
 
+// GetDeadLetterEvent mocks base method.
+func (m *MockStore) GetDeadLetterEvent(arg0 context.Context, arg1 int64) (db.DeadLetterEvent, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDeadLetterEvent", arg0, arg1)
+	ret0, _ := ret[0].(db.DeadLetterEvent)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDeadLetterEvent indicates an expected call of GetDeadLetterEvent.
+func (mr *MockStoreMockRecorder) GetDeadLetterEvent(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDeadLetterEvent", reflect.TypeOf((*MockStore)(nil).GetDeadLetterEvent), arg0, arg1)
+}
+
 // GetEntry mocks base method.
 func (m *MockStore) GetEntry(arg0 context.Context, arg1 int64) (db.Entry, error) {
 	m.ctrl.T.Helper()
@@ -286,6 +316,20 @@ func (m *MockStore) GetUser(arg0 context.Context, arg1 string) (db.User, error) 
 func (mr *MockStoreMockRecorder) GetUser(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUser", reflect.TypeOf((*MockStore)(nil).GetUser), arg0, arg1)
+}
+
+// IncrementDeadLetterRetry mocks base method.
+func (m *MockStore) IncrementDeadLetterRetry(arg0 context.Context, arg1 int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IncrementDeadLetterRetry", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// IncrementDeadLetterRetry indicates an expected call of IncrementDeadLetterRetry.
+func (mr *MockStoreMockRecorder) IncrementDeadLetterRetry(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IncrementDeadLetterRetry", reflect.TypeOf((*MockStore)(nil).IncrementDeadLetterRetry), arg0, arg1)
 }
 
 // ListAccounts mocks base method.
@@ -361,6 +405,35 @@ func (m *MockStore) ListUnprocessedOutboxEvents(arg0 context.Context, arg1 int32
 func (mr *MockStoreMockRecorder) ListUnprocessedOutboxEvents(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListUnprocessedOutboxEvents", reflect.TypeOf((*MockStore)(nil).ListUnprocessedOutboxEvents), arg0, arg1)
+}
+
+// ListUnresolvedDeadLetters mocks base method.
+func (m *MockStore) ListUnresolvedDeadLetters(arg0 context.Context, arg1 int32) ([]db.DeadLetterEvent, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListUnresolvedDeadLetters", arg0, arg1)
+	ret0, _ := ret[0].([]db.DeadLetterEvent)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListUnresolvedDeadLetters indicates an expected call of ListUnresolvedDeadLetters.
+func (mr *MockStoreMockRecorder) ListUnresolvedDeadLetters(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListUnresolvedDeadLetters", reflect.TypeOf((*MockStore)(nil).ListUnresolvedDeadLetters), arg0, arg1)
+}
+
+// MarkDeadLetterResolved mocks base method.
+func (m *MockStore) MarkDeadLetterResolved(arg0 context.Context, arg1 int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkDeadLetterResolved", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MarkDeadLetterResolved indicates an expected call of MarkDeadLetterResolved.
+func (mr *MockStoreMockRecorder) MarkDeadLetterResolved(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkDeadLetterResolved", reflect.TypeOf((*MockStore)(nil).MarkDeadLetterResolved), arg0, arg1)
 }
 
 // MarkOutboxEventProcessed mocks base method.

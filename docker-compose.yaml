@@ -76,6 +76,27 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
+  consumer:
+    build:
+      context: ./consumer
+      dockerfile: Dockerfile
+    container_name: simple-bank-consumer
+    environment:
+      - KAFKA_BROKERS=simple-bank-kafka:9092 # Single broker (default):
+      # Multiple brokers (jika Kafka cluster):
+      # - KAFKA_BROKERS=kafka-1:9092,kafka-2:9092,kafka-3:9092
+      - KAFKA_TOPIC=transaction-events
+      - KAFKA_GROUP_ID=transaction-consumer-group
+      - DATABASE_DSN=postgresql://postgres:root@postgres:5432/simple_bank?sslmode=disable  # for DLQ
+      - EMAIL_ENABLED=false
+      - ANALYTICS_ENABLED=false
+      - PUSH_ENABLED=false
+    depends_on:
+      - kafka
+      - postgres
+    networks:
+      - default
+    restart: unless-stopped
 
   api:
     build:
@@ -104,3 +125,7 @@ services:
         condition: service_healthy
 volumes:
   postgres_data:
+
+networks:
+  simple-bank:
+    driver: bridge

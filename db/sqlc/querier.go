@@ -12,6 +12,7 @@ import (
 
 type Querier interface {
 	AddAccountBalance(ctx context.Context, arg AddAccountBalanceParams) (Account, error)
+	CountUnresolvedDeadLetters(ctx context.Context) (int64, error)
 	CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error)
 	CreateDeadLetterEvent(ctx context.Context, arg CreateDeadLetterEventParams) error
 	CreateEntry(ctx context.Context, arg CreateEntryParams) (Entry, error)
@@ -23,15 +24,19 @@ type Querier interface {
 	DeleteDeadLetterEvent(ctx context.Context, id int64) error
 	GetAccount(ctx context.Context, id int64) (Account, error)
 	GetAccountForUpdate(ctx context.Context, id int64) (Account, error)
+	GetDeadLetterEvent(ctx context.Context, id int64) (DeadLetterEvent, error)
 	GetEntry(ctx context.Context, id int64) (Entry, error)
 	GetSession(ctx context.Context, id pgtype.UUID) (Session, error)
 	GetTransfer(ctx context.Context, id int64) (Transfer, error)
 	GetUser(ctx context.Context, username string) (User, error)
+	IncrementDeadLetterRetry(ctx context.Context, id int64) error
 	ListAccounts(ctx context.Context, arg ListAccountsParams) ([]Account, error)
 	ListDeadLetterEvents(ctx context.Context, arg ListDeadLetterEventsParams) ([]DeadLetterEvent, error)
 	ListEntries(ctx context.Context, arg ListEntriesParams) ([]Entry, error)
 	ListTransfers(ctx context.Context, arg ListTransfersParams) ([]Transfer, error)
 	ListUnprocessedOutboxEvents(ctx context.Context, limit int32) ([]OutboxEvent, error)
+	ListUnresolvedDeadLetters(ctx context.Context, limit int32) ([]DeadLetterEvent, error)
+	MarkDeadLetterResolved(ctx context.Context, id int64) error
 	MarkOutboxEventProcessed(ctx context.Context, id int64) error
 	UpdateAccount(ctx context.Context, arg UpdateAccountParams) (Account, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)

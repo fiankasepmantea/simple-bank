@@ -16,13 +16,23 @@ type Account struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+// Events that failed processing and need manual review or retry
 type DeadLetterEvent struct {
 	ID              int64              `json:"id"`
-	OriginalEventID int64              `json:"original_event_id"`
+	AggregateType   string             `json:"aggregate_type"`
+	AggregateID     int64              `json:"aggregate_id"`
 	EventType       string             `json:"event_type"`
 	Payload         []byte             `json:"payload"`
 	ErrorMessage    string             `json:"error_message"`
+	FailedAt        pgtype.Timestamptz `json:"failed_at"`
+	ConsumerGroup   string             `json:"consumer_group"`
+	Topic           string             `json:"topic"`
 	RetryCount      int32              `json:"retry_count"`
+	MaxRetries      int32              `json:"max_retries"`
+	NextRetryAt     pgtype.Timestamptz `json:"next_retry_at"`
+	ProcessingStage string             `json:"processing_stage"`
+	Resolved        bool               `json:"resolved"`
+	ResolvedAt      pgtype.Timestamptz `json:"resolved_at"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 }
 

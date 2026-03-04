@@ -7,35 +7,73 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const countUnresolvedDeadLetters = `-- name: CountUnresolvedDeadLetters :one
+SELECT COUNT(*) FROM dead_letter_events
+WHERE resolved = FALSE
+`
+
+func (q *Queries) CountUnresolvedDeadLetters(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countUnresolvedDeadLetters)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
 
 const createDeadLetterEvent = `-- name: CreateDeadLetterEvent :exec
 INSERT INTO dead_letter_events (
-    original_event_id,
+    aggregate_type,
+    aggregate_id,
     event_type,
     payload,
     error_message,
-    retry_count
+    failed_at,
+    consumer_group,
+    topic,
+    retry_count,
+    max_retries,
+    next_retry_at,
+    processing_stage,
+    resolved
 ) VALUES (
-    $1, $2, $3, $4, $5
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
 )
 `
 
 type CreateDeadLetterEventParams struct {
-	OriginalEventID int64  `json:"original_event_id"`
-	EventType       string `json:"event_type"`
-	Payload         []byte `json:"payload"`
-	ErrorMessage    string `json:"error_message"`
-	RetryCount      int32  `json:"retry_count"`
+	AggregateType   string             `json:"aggregate_type"`
+	AggregateID     int64              `json:"aggregate_id"`
+	EventType       string             `json:"event_type"`
+	Payload         []byte             `json:"payload"`
+	ErrorMessage    string             `json:"error_message"`
+	FailedAt        pgtype.Timestamptz `json:"failed_at"`
+	ConsumerGroup   string             `json:"consumer_group"`
+	Topic           string             `json:"topic"`
+	RetryCount      int32              `json:"retry_count"`
+	MaxRetries      int32              `json:"max_retries"`
+	NextRetryAt     pgtype.Timestamptz `json:"next_retry_at"`
+	ProcessingStage string             `json:"processing_stage"`
+	Resolved        bool               `json:"resolved"`
 }
 
 func (q *Queries) CreateDeadLetterEvent(ctx context.Context, arg CreateDeadLetterEventParams) error {
 	_, err := q.db.Exec(ctx, createDeadLetterEvent,
-		arg.OriginalEventID,
+		arg.AggregateType,
+		arg.AggregateID,
 		arg.EventType,
 		arg.Payload,
 		arg.ErrorMessage,
+		arg.FailedAt,
+		arg.ConsumerGroup,
+		arg.Topic,
 		arg.RetryCount,
+		arg.MaxRetries,
+		arg.NextRetryAt,
+		arg.ProcessingStage,
+		arg.Resolved,
 	)
 	return err
 }
@@ -50,8 +88,49 @@ func (q *Queries) DeleteDeadLetterEvent(ctx context.Context, id int64) error {
 	return err
 }
 
+const getDeadLetterEvent = `-- name: GetDeadLetterEvent :one
+SELECT id, aggregate_type, aggregate_id, event_type, payload, error_message, failed_at, consumer_group, topic, retry_count, max_retries, next_retry_at, processing_stage, resolved, resolved_at, created_at FROM dead_letter_events
+WHERE id = $1
+`
+
+func (q *Queries) GetDeadLetterEvent(ctx context.Context, id int64) (DeadLetterEvent, error) {
+	row := q.db.QueryRow(ctx, getDeadLetterEvent, id)
+	var i DeadLetterEvent
+	err := row.Scan(
+		&i.ID,
+		&i.AggregateType,
+		&i.AggregateID,
+		&i.EventType,
+		&i.Payload,
+		&i.ErrorMessage,
+		&i.FailedAt,
+		&i.ConsumerGroup,
+		&i.Topic,
+		&i.RetryCount,
+		&i.MaxRetries,
+		&i.NextRetryAt,
+		&i.ProcessingStage,
+		&i.Resolved,
+		&i.ResolvedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const incrementDeadLetterRetry = `-- name: IncrementDeadLetterRetry :exec
+UPDATE dead_letter_events
+SET retry_count = retry_count + 1,
+    next_retry_at = NOW() + INTERVAL '5 minutes' * (retry_count + 1)
+WHERE id = $1
+`
+
+func (q *Queries) IncrementDeadLetterRetry(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, incrementDeadLetterRetry, id)
+	return err
+}
+
 const listDeadLetterEvents = `-- name: ListDeadLetterEvents :many
-SELECT id, original_event_id, event_type, payload, error_message, retry_count, created_at FROM dead_letter_events
+SELECT id, aggregate_type, aggregate_id, event_type, payload, error_message, failed_at, consumer_group, topic, retry_count, max_retries, next_retry_at, processing_stage, resolved, resolved_at, created_at FROM dead_letter_events
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2
 `
@@ -72,11 +151,20 @@ func (q *Queries) ListDeadLetterEvents(ctx context.Context, arg ListDeadLetterEv
 		var i DeadLetterEvent
 		if err := rows.Scan(
 			&i.ID,
-			&i.OriginalEventID,
+			&i.AggregateType,
+			&i.AggregateID,
 			&i.EventType,
 			&i.Payload,
 			&i.ErrorMessage,
+			&i.FailedAt,
+			&i.ConsumerGroup,
+			&i.Topic,
 			&i.RetryCount,
+			&i.MaxRetries,
+			&i.NextRetryAt,
+			&i.ProcessingStage,
+			&i.Resolved,
+			&i.ResolvedAt,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -87,4 +175,59 @@ func (q *Queries) ListDeadLetterEvents(ctx context.Context, arg ListDeadLetterEv
 		return nil, err
 	}
 	return items, nil
+}
+
+const listUnresolvedDeadLetters = `-- name: ListUnresolvedDeadLetters :many
+SELECT id, aggregate_type, aggregate_id, event_type, payload, error_message, failed_at, consumer_group, topic, retry_count, max_retries, next_retry_at, processing_stage, resolved, resolved_at, created_at FROM dead_letter_events
+WHERE resolved = FALSE AND next_retry_at <= NOW()
+ORDER BY failed_at ASC
+LIMIT $1
+`
+
+func (q *Queries) ListUnresolvedDeadLetters(ctx context.Context, limit int32) ([]DeadLetterEvent, error) {
+	rows, err := q.db.Query(ctx, listUnresolvedDeadLetters, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []DeadLetterEvent{}
+	for rows.Next() {
+		var i DeadLetterEvent
+		if err := rows.Scan(
+			&i.ID,
+			&i.AggregateType,
+			&i.AggregateID,
+			&i.EventType,
+			&i.Payload,
+			&i.ErrorMessage,
+			&i.FailedAt,
+			&i.ConsumerGroup,
+			&i.Topic,
+			&i.RetryCount,
+			&i.MaxRetries,
+			&i.NextRetryAt,
+			&i.ProcessingStage,
+			&i.Resolved,
+			&i.ResolvedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markDeadLetterResolved = `-- name: MarkDeadLetterResolved :exec
+UPDATE dead_letter_events
+SET resolved = TRUE, resolved_at = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) MarkDeadLetterResolved(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, markDeadLetterResolved, id)
+	return err
 }

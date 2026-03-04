@@ -8,6 +8,7 @@ import (
 	db "simple-bank/db/sqlc"
 	"simple-bank/kf"
 	"simple-bank/metrics"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type OutboxRelay struct {
@@ -70,8 +71,6 @@ func (r *OutboxRelay) processEvent(ctx context.Context, event db.OutboxEvent) er
 		if err == nil {
 			metrics.KafkaPublishAttempts.WithLabelValues(r.topic, "success").Inc()
 			metrics.OutboxEventsProcessed.WithLabelValues(event.EventType, "success").Inc()
-			
-			// Mark as processed ONLY after successful publish
 			return r.store.MarkOutboxEventProcessed(ctx, event.ID)
 		}
 		
@@ -79,7 +78,6 @@ func (r *OutboxRelay) processEvent(ctx context.Context, event db.OutboxEvent) er
 		metrics.KafkaPublishAttempts.WithLabelValues(r.topic, "retry").Inc()
 		
 		if attempt < maxRetries {
-			// Exponential backoff: 1s, 2s, 4s
 			backoff := time.Duration(1<<uint(attempt-1)) * time.Second
 			log.Printf("⚠️  Attempt %d/%d failed for event %d: %v. Retrying in %v...", 
 				attempt, maxRetries, event.ID, err, backoff)
@@ -93,20 +91,28 @@ func (r *OutboxRelay) processEvent(ctx context.Context, event db.OutboxEvent) er
 	metrics.KafkaPublishAttempts.WithLabelValues(r.topic, "failed").Inc()
 	metrics.OutboxEventsProcessed.WithLabelValues(event.EventType, "dead_letter").Inc()
 	
-	// Create dead letter record - note: returns only error now
+	// ✅ FIX: Convert time.Time → pgtype.Timestamptz
+	now := time.Now()
 	err := r.store.CreateDeadLetterEvent(ctx, db.CreateDeadLetterEventParams{
-		OriginalEventID: event.ID,
+		AggregateType:   "transfer",
+		AggregateID:     event.AggregateID,
 		EventType:       event.EventType,
 		Payload:         event.Payload,
 		ErrorMessage:    lastErr.Error(),
+		FailedAt:        pgtype.Timestamptz{Time: now, Valid: true},              // ✅ FIX 1
+		ConsumerGroup:   "outbox-relay",
+		Topic:           r.topic,
 		RetryCount:      int32(maxRetries),
+		MaxRetries:      int32(maxRetries),
+		NextRetryAt:     pgtype.Timestamptz{Time: now.Add(1 * time.Hour), Valid: true}, // ✅ FIX 2
+		ProcessingStage: "outbox_relay_publish",
+		Resolved:        false,
 	})
 	if err != nil {
 		log.Printf("❌ Failed to create dead letter record for event %d: %v", event.ID, err)
 		return err
 	}
 	
-	// Still mark original event as processed to avoid infinite retry loop
 	return r.store.MarkOutboxEventProcessed(ctx, event.ID)
 }
 
