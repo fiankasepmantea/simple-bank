@@ -16,6 +16,16 @@ type Account struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type DeadLetterEvent struct {
+	ID              int64              `json:"id"`
+	OriginalEventID int64              `json:"original_event_id"`
+	EventType       string             `json:"event_type"`
+	Payload         []byte             `json:"payload"`
+	ErrorMessage    string             `json:"error_message"`
+	RetryCount      int32              `json:"retry_count"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
 type Entry struct {
 	ID        int64 `json:"id"`
 	AccountID int64 `json:"account_id"`

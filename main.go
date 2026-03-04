@@ -13,6 +13,7 @@ import (
 	"simple-bank/gapi"
 	"simple-bank/pb"
 	"strings"
+	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -27,11 +28,13 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 
-	"simple-bank/worker"       
-	"github.com/hibiken/asynq"
+	"simple-bank/kf"
 	"simple-bank/mq"
-	amqp "github.com/rabbitmq/amqp091-go"
+	"simple-bank/worker"
 
+	"github.com/hibiken/asynq"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 //go:embed doc/swagger/*
@@ -47,19 +50,38 @@ func main() {
 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	}
 
-    pool, _ := pgxpool.New(context.Background(), config.DBSource)
-    defer pool.Close()
+	pool, _ := pgxpool.New(context.Background(), config.DBSource)
+	defer pool.Close()
 
-    runDBMigration(config.MigrationURL, config.DBSource)
+	runDBMigration(config.MigrationURL, config.DBSource)
 
-    store := db.NewStore(pool)
+	store := db.NewStore(pool)
+
+	kafkaConfig := kf.LoadConfig()
+	if config.Environment == "development" {
+		kafkaConfig.Brokers = []string{"simple-bank-kafka:9092"}
+	}
+
+	kafkaPublisher, err := kf.NewKafkaPublisher(kafkaConfig.Brokers)
+	if err != nil {
+		log.Fatal().Err(err).Msg("cannot create kafka publisher")
+	}
+	defer kafkaPublisher.Close()
+
+	outboxRelay := worker.NewOutboxRelay(
+		store,
+		kafkaPublisher,
+		kafkaConfig.Topic,
+		3*time.Second,
+	)
+	go outboxRelay.Start()
 
 	redisOpt := asynq.RedisClientOpt{
 		Addr: config.RedisAddress,
 	}
 
 	taskDistributor := worker.NewRedisTaskDistributor(redisOpt)
-	
+
 	conn, ch := mq.NewRabbitMQ(config.RabbitMQURL)
 	defer conn.Close()
 	defer ch.Close()
@@ -67,10 +89,17 @@ func main() {
 	mq.StartUserCreatedConsumer(ch, store)
 
 	go runTaskProcessor(redisOpt, store)
-    go runGatewayServer(config, store, taskDistributor, ch)
-    runGrpcServer(config, store, taskDistributor, ch)
+	go runGatewayServer(config, store, taskDistributor, ch)
+	runGrpcServer(config, store, taskDistributor, ch)
 
 	// runGinServer(config, store)
+
+	go func() {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		log.Info().Msg("📊 Metrics server starting at :9091")
+		log.Fatal().Err(http.ListenAndServe(":9091", mux)).Msg("metrics server failed")
+	}()
 }
 
 func runDBMigration(migrationURL string, dbSource string) {
@@ -81,7 +110,7 @@ func runDBMigration(migrationURL string, dbSource string) {
 	if err = migration.Up(); err != nil && err != migrate.ErrNoChange {
 		log.Fatal().Msg("failed to run migrate up:")
 	}
-	log.Info().Msg("db migrated successfully")	
+	log.Info().Msg("db migrated successfully")
 }
 
 func runTaskProcessor(redisOpt asynq.RedisClientOpt, store db.Store) {
@@ -92,7 +121,7 @@ func runTaskProcessor(redisOpt asynq.RedisClientOpt, store db.Store) {
 		log.Fatal().Err(err).Msg("failed to start task processor:")
 	}
 }
-func runGrpcServer(config util.Config, store db.Store, taskDistributor worker.TaskDistributor, rabbitCh *amqp.Channel,) {
+func runGrpcServer(config util.Config, store db.Store, taskDistributor worker.TaskDistributor, rabbitCh *amqp.Channel) {
 	server, err := gapi.NewServer(config, store, taskDistributor, rabbitCh)
 	if err != nil {
 		log.Fatal().Msg("cannot create server:")
@@ -116,7 +145,7 @@ func runGrpcServer(config util.Config, store db.Store, taskDistributor worker.Ta
 	}
 }
 
-func runGatewayServer(config util.Config, store db.Store, taskDistributor worker.TaskDistributor, rabbitCh *amqp.Channel,) {
+func runGatewayServer(config util.Config, store db.Store, taskDistributor worker.TaskDistributor, rabbitCh *amqp.Channel) {
 	// Initialize gRPC server
 	server, err := gapi.NewServer(config, store, taskDistributor, rabbitCh)
 	if err != nil {
