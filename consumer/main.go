@@ -2,11 +2,15 @@ package main
 
 import (
 	"context"
+	"log"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -58,6 +62,12 @@ func main() {
 	}
 
 	slog.Info("Consumer shutdown complete")
+
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		slog.Info("📊 Metrics endpoint started", "address", ":8081")
+		log.Fatal(http.ListenAndServe(":8081", nil))
+	}()
 }
 
 // ✅ HELPER: Parse comma-separated brokers string into []string

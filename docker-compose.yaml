@@ -77,6 +77,8 @@ services:
       timeout: 10s
       retries: 5
   consumer:
+    ports:
+      - "8081:8081"
     build:
       context: ./consumer
       dockerfile: Dockerfile
