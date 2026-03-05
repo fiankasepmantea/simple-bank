@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -11,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -22,7 +22,6 @@ func main() {
 
 	// Load config from environment
 	cfg := ConsumerConfig{
-		// ✅ FIX: Parse comma-separated brokers string into []string
 		Brokers:          parseBrokers(getEnv("KAFKA_BROKERS", "simple-bank-kafka:9092")),
 		Topic:            getEnv("KAFKA_TOPIC", "transaction-events"),
 		GroupID:          getEnv("KAFKA_GROUP_ID", "transaction-consumer-group"),
@@ -42,6 +41,15 @@ func main() {
 	}
 	defer consumer.Close()
 
+	// ✅ FIX: Start metrics server in separate goroutine BEFORE consumer.Start()
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		slog.Info("📊 Metrics endpoint started", "address", ":8081")
+		if err := http.ListenAndServe(":8081", nil); err != nil {
+			slog.Error("Metrics server failed", "error", err)
+		}
+	}()
+
 	// Setup context with graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -55,20 +63,15 @@ func main() {
 		cancel()
 	}()
 
-	// Start consuming
+	// Start consuming (blocking call)
 	if err := consumer.Start(ctx); err != nil && err != context.Canceled {
 		slog.Error("Consumer stopped with error", "error", err)
 		os.Exit(1)
 	}
 
 	slog.Info("Consumer shutdown complete")
-
-	go func() {
-		http.Handle("/metrics", promhttp.Handler())
-		slog.Info("📊 Metrics endpoint started", "address", ":8081")
-		log.Fatal(http.ListenAndServe(":8081", nil))
-	}()
 }
+
 
 // ✅ HELPER: Parse comma-separated brokers string into []string
 func parseBrokers(brokersStr string) []string {

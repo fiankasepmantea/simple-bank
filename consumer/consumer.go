@@ -1,4 +1,4 @@
-// consumer/consumer.go - FIXED VERSION
+// consumer/consumer.go - FINAL PRODUCTION VERSION
 package main
 
 import (
@@ -10,9 +10,39 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/segmentio/kafka-go"
-	_ "github.com/lib/pq"
+	_ "github.com/lib/pq" // Register postgres driver
 )
+
+// ============================================================================
+// PROMETHEUS METRICS (global, registered once via init)
+// ============================================================================
+
+var (
+	metricsProcessed = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "consumer_transactions_processed_total",
+			Help: "Total number of transactions processed by status",
+		},
+		[]string{"status"}, // success, failed
+	)
+	metricsProcessingTime = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    "consumer_processing_duration_seconds",
+			Help:    "Time spent processing a single transaction",
+			Buckets: prometheus.DefBuckets,
+		},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(metricsProcessed, metricsProcessingTime)
+}
+
+// ============================================================================
+// DATA STRUCTURES
+// ============================================================================
 
 // TransactionEvent represents the payload from Kafka
 type TransactionEvent struct {
@@ -54,6 +84,26 @@ type ConsumerMetrics struct {
 	mu             sync.RWMutex
 }
 
+// DeadLetterEntry represents an event that failed processing
+type DeadLetterEntry struct {
+	ID              int64            `json:"id,omitempty"`
+	OriginalEvent   TransactionEvent `json:"original_event"`
+	Error           string           `json:"error"`
+	FailedAt        time.Time        `json:"failed_at"`
+	ConsumerGroup   string           `json:"consumer_group"`
+	Topic           string           `json:"topic"`
+	RetryCount      int              `json:"retry_count"`
+	MaxRetries      int              `json:"max_retries"`
+	NextRetryAt     time.Time        `json:"next_retry_at"`
+	ProcessingStage string           `json:"processing_stage"`
+	Resolved        bool             `json:"resolved"`
+	ResolvedAt      *time.Time       `json:"resolved_at,omitempty"`
+}
+
+// ============================================================================
+// CONSTRUCTOR
+// ============================================================================
+
 // NewConsumer creates a new Kafka consumer instance with dependencies
 func NewConsumer(cfg ConsumerConfig) (*Consumer, error) {
 	reader := kafka.NewReader(kafka.ReaderConfig{
@@ -89,6 +139,10 @@ func NewConsumer(cfg ConsumerConfig) (*Consumer, error) {
 	return c, nil
 }
 
+// ============================================================================
+// MAIN LOOP
+// ============================================================================
+
 // Start begins consuming messages from Kafka
 func (c *Consumer) Start(ctx context.Context) error {
 	c.mu.Lock()
@@ -122,7 +176,7 @@ func (c *Consumer) Start(ctx context.Context) error {
 					return err
 				}
 				c.logger.Warn("Fetch error", "error", err)
-				time.Sleep(1 * time.Second)
+				time.Sleep(1 * time.Second) // Backoff on transient errors
 				continue
 			}
 
@@ -134,12 +188,14 @@ func (c *Consumer) Start(ctx context.Context) error {
 					"raw_payload", string(msg.Value))
 				c.incrementFailed()
 
+				// Commit to avoid poison pill (malformed message)
 				if err := c.reader.CommitMessages(ctx, msg); err != nil {
 					c.logger.Error("Failed to commit failed message", "error", err)
 				}
 				continue
 			}
 
+			// Process event with comprehensive error handling
 			if err := c.processEvent(ctx, event); err != nil {
 				c.logger.Error("Failed to process transfer",
 					"transfer_id", event.TransferID,
@@ -155,6 +211,7 @@ func (c *Consumer) Start(ctx context.Context) error {
 				c.incrementProcessed()
 			}
 
+			// Commit offset after processing (at-least-once semantics)
 			if err := c.reader.CommitMessages(ctx, msg); err != nil {
 				c.logger.Error("Failed to commit message",
 					"offset", msg.Offset,
@@ -164,28 +221,53 @@ func (c *Consumer) Start(ctx context.Context) error {
 	}
 }
 
+// ============================================================================
+// BUSINESS LOGIC
+// ============================================================================
+
 // processEvent handles the complete business logic for a transaction event
 func (c *Consumer) processEvent(ctx context.Context, event TransactionEvent) error {
+	// ✅ Input validation (defensive programming)
+	if event.TransferID <= 0 {
+		return fmt.Errorf("invalid transfer_id: %d", event.TransferID)
+	}
+	if event.Amount < 0 {
+		return fmt.Errorf("invalid amount: %d", event.Amount)
+	}
+
+	// ✅ Track processing time with Prometheus
+	start := time.Now()
+	defer func() {
+		metricsProcessingTime.Observe(time.Since(start).Seconds())
+	}()
+
 	c.logger.Debug("Processing event", "event", event)
 
+	// 📧 1. Send email notification (if enabled, non-critical)
 	if c.config.EmailEnabled {
 		if err := c.sendEmailNotification(ctx, event); err != nil {
 			c.logger.Warn("Email notification failed", "transfer_id", event.TransferID, "error", err)
+			// Don't return error - email is non-critical
 		}
 	}
 
+	// 📊 2. Update analytics (if enabled, non-critical)
 	if c.config.AnalyticsEnabled {
 		if err := c.updateAnalytics(ctx, event); err != nil {
 			c.logger.Warn("Analytics update failed", "transfer_id", event.TransferID, "error", err)
+			// Don't return error - analytics is non-critical
 		}
 	}
 
+	// 🔔 3. Send push notification (if enabled, non-critical)
 	if c.config.PushEnabled {
 		if err := c.sendPushNotification(ctx, event); err != nil {
 			c.logger.Warn("Push notification failed", "transfer_id", event.TransferID, "error", err)
+			// Don't return error - push is non-critical
 		}
 	}
 
+	// 🔔 4. Core notification log (always executed)
 	c.logger.Info("🔔 [NOTIFICATION] Transfer alert",
 		"from_account", event.FromAccount,
 		"to_account", event.ToAccount,
@@ -193,8 +275,14 @@ func (c *Consumer) processEvent(ctx context.Context, event TransactionEvent) err
 		"currency", event.Currency,
 		"transfer_id", event.TransferID)
 
+	// ✅ Record success metric
+	metricsProcessed.WithLabelValues("success").Inc()
 	return nil
 }
+
+// ============================================================================
+// NOTIFICATION STUBS (implement with your providers)
+// ============================================================================
 
 // sendEmailNotification sends email to account owners (stub)
 func (c *Consumer) sendEmailNotification(_ context.Context, event TransactionEvent) error {
@@ -203,6 +291,7 @@ func (c *Consumer) sendEmailNotification(_ context.Context, event TransactionEve
 		"from_account", event.FromAccount,
 		"to_account", event.ToAccount,
 		"amount", event.Amount)
+	// TODO: Implement with SendGrid, AWS SES, Mailgun, etc.
 	return nil
 }
 
@@ -214,6 +303,7 @@ func (c *Consumer) updateAnalytics(_ context.Context, event TransactionEvent) er
 		"currency", event.Currency,
 		"from_account", event.FromAccount,
 		"to_account", event.ToAccount)
+	// TODO: Implement with your analytics service
 	return nil
 }
 
@@ -222,8 +312,13 @@ func (c *Consumer) sendPushNotification(_ context.Context, event TransactionEven
 	c.logger.Info("🔔 [PUSH] Would send mobile notification",
 		"transfer_id", event.TransferID,
 		"accounts", []int64{event.FromAccount, event.ToAccount})
+	// TODO: Implement with FCM, APNs, OneSignal, etc.
 	return nil
 }
+
+// ============================================================================
+// ERROR HANDLING & DEAD LETTER QUEUE
+// ============================================================================
 
 // handleProcessingError handles failed event processing by sending to Dead Letter Queue
 func (c *Consumer) handleProcessingError(ctx context.Context, event TransactionEvent, err error) {
@@ -243,6 +338,7 @@ func (c *Consumer) handleProcessingError(ctx context.Context, event TransactionE
 		"transfer_id", event.TransferID,
 		"error", err)
 
+	// Try to persist to database DLQ (if DB connected)
 	if c.db != nil {
 		if dlqErr := c.saveToDeadLetterQueue(ctx, dlqEntry); dlqErr != nil {
 			c.logger.Error("❌ Failed to save to database DLQ", "error", dlqErr)
@@ -250,36 +346,28 @@ func (c *Consumer) handleProcessingError(ctx context.Context, event TransactionE
 			c.logger.Info("✅ Saved to database Dead Letter Queue", "transfer_id", event.TransferID)
 		}
 	}
+
+	// ✅ Record failed metric (regardless of DLQ save success)
+	metricsProcessed.WithLabelValues("failed").Inc()
 }
 
-// DeadLetterEntry represents an event that failed processing
-type DeadLetterEntry struct {
-	ID              int64            `json:"id,omitempty"`
-	OriginalEvent   TransactionEvent `json:"original_event"`
-	Error           string           `json:"error"`
-	FailedAt        time.Time        `json:"failed_at"`
-	ConsumerGroup   string           `json:"consumer_group"`
-	Topic           string           `json:"topic"`
-	RetryCount      int              `json:"retry_count"`
-	MaxRetries      int              `json:"max_retries"`
-	NextRetryAt     time.Time        `json:"next_retry_at"`
-	ProcessingStage string           `json:"processing_stage"`
-	Resolved        bool             `json:"resolved"`
-	ResolvedAt      *time.Time       `json:"resolved_at,omitempty"`
-}
-
-// ✅ saveToDeadLetterQueue - RAW SQL VERSION (no sqlc dependency)
+// saveToDeadLetterQueue persists failed event to PostgreSQL dead_letter_events table
+// ✅ Uses context timeout to prevent hanging queries
 func (c *Consumer) saveToDeadLetterQueue(ctx context.Context, entry DeadLetterEntry) error {
 	if c.db == nil {
 		return fmt.Errorf("database connection not initialized")
 	}
+
+	// ✅ Add timeout for DB operation (production best practice)
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 
 	eventJSON, err := json.Marshal(entry.OriginalEvent)
 	if err != nil {
 		return fmt.Errorf("marshal original_event: %w", err)
 	}
 
-	// Raw SQL query - match with migration schema
+	// Raw SQL query - parameterized to prevent SQL injection
 	query := `
 		INSERT INTO dead_letter_events (
 			aggregate_type,
@@ -300,7 +388,7 @@ func (c *Consumer) saveToDeadLetterQueue(ctx context.Context, entry DeadLetterEn
 		)
 	`
 
-	_, err = c.db.ExecContext(ctx, query,
+	_, err = c.db.ExecContext(ctxWithTimeout, query,
 		"transfer",                        // aggregate_type
 		entry.OriginalEvent.TransferID,    // aggregate_id
 		"transfer_created",                // event_type
@@ -323,7 +411,7 @@ func (c *Consumer) saveToDeadLetterQueue(ctx context.Context, entry DeadLetterEn
 	return nil
 }
 
-// publishToKafkaDLQ publishes failed event to separate Kafka DLQ topic (stub)
+// publishToKafkaDLQ publishes failed event to separate Kafka DLQ topic (stub/alternative)
 func (c *Consumer) publishToKafkaDLQ(_ context.Context, entry DeadLetterEntry) error {
 	entryJSON, err := json.Marshal(entry)
 	if err != nil {
@@ -334,8 +422,13 @@ func (c *Consumer) publishToKafkaDLQ(_ context.Context, entry DeadLetterEntry) e
 		"topic", "transaction-events.dlq",
 		"transfer_id", entry.OriginalEvent.TransferID,
 		"payload_size", len(entryJSON))
+	// TODO: Implement with kafka-go Writer for DLQ topic
 	return nil
 }
+
+// ============================================================================
+// METRICS & STATE (thread-safe)
+// ============================================================================
 
 // incrementProcessed safely increments processed counter
 func (c *Consumer) incrementProcessed() {
@@ -389,6 +482,7 @@ func (c *Consumer) HealthCheck() map[string]interface{} {
 		"last_processed":  metrics.LastProcessed,
 	}
 
+	// Check database connection if initialized
 	if c.db != nil {
 		if err := c.db.Ping(); err != nil {
 			status["status"] = "degraded"
@@ -400,6 +494,10 @@ func (c *Consumer) HealthCheck() map[string]interface{} {
 
 	return status
 }
+
+// ============================================================================
+// CLEANUP
+// ============================================================================
 
 // Close gracefully shuts down the consumer
 func (c *Consumer) Close() error {

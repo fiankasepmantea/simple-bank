@@ -91,7 +91,6 @@ func (r *OutboxRelay) processEvent(ctx context.Context, event db.OutboxEvent) er
 	metrics.KafkaPublishAttempts.WithLabelValues(r.topic, "failed").Inc()
 	metrics.OutboxEventsProcessed.WithLabelValues(event.EventType, "dead_letter").Inc()
 	
-	// ✅ FIX: Convert time.Time → pgtype.Timestamptz
 	now := time.Now()
 	err := r.store.CreateDeadLetterEvent(ctx, db.CreateDeadLetterEventParams{
 		AggregateType:   "transfer",
@@ -99,12 +98,12 @@ func (r *OutboxRelay) processEvent(ctx context.Context, event db.OutboxEvent) er
 		EventType:       event.EventType,
 		Payload:         event.Payload,
 		ErrorMessage:    lastErr.Error(),
-		FailedAt:        pgtype.Timestamptz{Time: now, Valid: true},              // ✅ FIX 1
+		FailedAt:        pgtype.Timestamptz{Time: now, Valid: true},              
 		ConsumerGroup:   "outbox-relay",
 		Topic:           r.topic,
 		RetryCount:      int32(maxRetries),
 		MaxRetries:      int32(maxRetries),
-		NextRetryAt:     pgtype.Timestamptz{Time: now.Add(1 * time.Hour), Valid: true}, // ✅ FIX 2
+		NextRetryAt:     pgtype.Timestamptz{Time: now.Add(1 * time.Hour), Valid: true}, 
 		ProcessingStage: "outbox_relay_publish",
 		Resolved:        false,
 	})
